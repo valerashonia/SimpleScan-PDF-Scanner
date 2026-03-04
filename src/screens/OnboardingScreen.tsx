@@ -10,12 +10,18 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
 import { Colors } from '../constants/colors';
 
 const { width, height } = Dimensions.get('window');
 
-const LIGHT_BG = '#F1F5FC';
+const LIGHT_BG_TOP = '#F4F7FC';
+const LIGHT_BG_BOTTOM = '#EAEFF8';
+/** Backward-compatible alias so cached bundles or any reference to LIGHT_BG still resolves. */
+const LIGHT_BG = LIGHT_BG_BOTTOM;
 const ACCENT_PURPLE = '#8B5CF6';
+const GLOW_CENTER = 'rgba(139, 92, 246, 0.12)';
+const GLOW_EDGE = 'rgba(139, 92, 246, 0.02)';
 
 interface OnboardingSlide {
   id: string;
@@ -59,6 +65,13 @@ function OnboardingIllustration({ slideIndex }: { slideIndex: number }) {
   const isFullBleedSlide = slideIndex === 0 || slideIndex === 1 || slideIndex === 2;
   return (
     <View style={[styles.illustrationWrapper, isFullBleedSlide && styles.illustrationWrapperFirst]}>
+      <View style={[styles.illustrationGlowWrap, isFullBleedSlide && styles.illustrationGlowWrapFirst]} pointerEvents="none">
+        <LinearGradient
+          colors={[GLOW_EDGE, GLOW_CENTER, GLOW_CENTER, GLOW_EDGE]}
+          locations={[0, 0.35, 0.65, 1]}
+          style={styles.illustrationGlow}
+        />
+      </View>
       <Image
         source={source}
         style={[styles.illustrationImage, isFullBleedSlide && styles.illustrationImageFirst]}
@@ -96,6 +109,11 @@ export default function OnboardingScreen({ onComplete, onSubscribe }: Onboarding
 
   return (
     <View style={styles.container}>
+      <LinearGradient
+        colors={[LIGHT_BG_TOP, LIGHT_BG_BOTTOM]}
+        style={StyleSheet.absoluteFill}
+        pointerEvents="none"
+      />
       <FlatList
         ref={flatListRef}
         data={slides}
@@ -138,7 +156,7 @@ export default function OnboardingScreen({ onComplete, onSubscribe }: Onboarding
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: LIGHT_BG,
+    backgroundColor: LIGHT_BG_BOTTOM,
   },
   flatList: {
     flex: 1,
@@ -147,24 +165,37 @@ const styles = StyleSheet.create({
     width,
     flex: 1,
     justifyContent: 'flex-start',
-    backgroundColor: LIGHT_BG,
+    backgroundColor: 'transparent',
   },
   illustrationWrapper: {
     width: width,
     height: ILLUSTRATION_HEIGHT,
     marginTop: height * 0.12,
     overflow: 'hidden',
-    backgroundColor: LIGHT_BG,
+    backgroundColor: 'transparent',
   },
   illustrationWrapperFirst: {
     marginTop: 0,
     height: height * 0.55,
     alignSelf: 'flex-start',
   },
+  illustrationGlowWrap: {
+    ...StyleSheet.absoluteFillObject,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  illustrationGlowWrapFirst: {
+    height: height * 0.55,
+  },
+  illustrationGlow: {
+    width: '100%',
+    height: '100%',
+    borderRadius: width * 0.5,
+  },
   illustrationImage: {
     width: '100%',
     height: '100%',
-    opacity: 0.92,
+    opacity: 1,
   },
   illustrationImageFirst: {
     width: width,
@@ -198,7 +229,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 24,
     paddingVertical: 20,
     paddingBottom: 32,
-    backgroundColor: LIGHT_BG,
+    backgroundColor: LIGHT_BG_BOTTOM,
   },
   dotsRow: {
     flexDirection: 'row',

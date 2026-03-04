@@ -16,6 +16,7 @@ import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import Constants from 'expo-constants';
+import * as Device from 'expo-device';
 import * as MailComposer from 'expo-mail-composer';
 import { Colors } from '../constants/colors';
 import {
@@ -38,11 +39,15 @@ export default function AccountScreen({ onUpgrade }: AccountScreenProps) {
   const [showPrivacyModal, setShowPrivacyModal] = useState(false);
   const openFeedbackMail = async () => {
     const subject = `${APP_NAME} – Feedback`;
+    const osVersionLabel = Platform.OS === 'ios' ? 'iOS Version' : 'Android Version';
+    const osVersion = typeof Device?.osVersion === 'string' ? Device.osVersion : String(Platform.Version ?? '');
+    const deviceModel = typeof Device?.modelName === 'string' ? Device.modelName : (Constants.platform?.ios as { model?: string })?.model ?? 'Unknown';
     const body = [
       '---',
       `App: ${APP_NAME}`,
       `Version: ${APP_VERSION}`,
-      `Platform: ${Platform.OS}`,
+      `${osVersionLabel}: ${osVersion}`,
+      `Device: ${deviceModel}`,
       '---',
       '',
       'Your feedback:',

@@ -68,39 +68,45 @@ export default function SubscriptionScreen({ onComplete, onSkip }: SubscriptionS
           <Ionicons name="close" size={24} color={TEXT_DARK} />
         </TouchableOpacity>
 
-        <ScrollView
-          style={styles.scroll}
-          contentContainerStyle={[styles.scrollContent, { paddingBottom: 70, flexGrow: 1 }]}
-          showsVerticalScrollIndicator={false}
-          scrollEnabled={false}
-        >
-          <Text style={styles.title}>Your one-time offer</Text>
-          <Text style={styles.subtitle}>Unlock unlimited scans and PDF export</Text>
+        <View style={styles.mainLayout}>
+          <ScrollView
+            style={styles.scroll}
+            contentContainerStyle={styles.scrollContent}
+            showsVerticalScrollIndicator={false}
+            scrollEnabled={false}
+          >
+            <Text style={styles.title}>Unlock SimpleScan Pro.</Text>
+            <Text style={styles.subtitle}>Unlock unlimited scans and PDF export</Text>
 
-          <View style={styles.featuresList}>
-            {FEATURES.map((f, i) => (
-              <View key={i} style={styles.featureRow}>
-                <View style={[styles.featureIconWrap, { backgroundColor: f.color + '22' }]}>
-                  <Ionicons name={f.icon} size={22} color={f.color} />
+            <View style={styles.featuresList}>
+              {FEATURES.map((f, i) => (
+                <View key={i} style={styles.featureRow}>
+                  <View style={[styles.featureIconWrap, { backgroundColor: f.color + '22' }]}>
+                    <Ionicons name={f.icon} size={22} color={f.color} />
+                  </View>
+                  <View style={styles.featureTextWrap}>
+                    <Text style={styles.featureLabel}>{f.label}</Text>
+                    <Text style={styles.featureCaption}>{f.caption}</Text>
+                  </View>
                 </View>
-                <View style={styles.featureTextWrap}>
-                  <Text style={styles.featureLabel}>{f.label}</Text>
-                  <Text style={styles.featureCaption}>{f.caption}</Text>
-                </View>
+              ))}
+            </View>
+
+            <View style={styles.cardsBlockWrap}>
+              <View style={styles.planBadgeFullWidth}>
+                {selectedPlan === 'yearly' && (
+                  <View style={styles.planBadgeAbove}>
+                    <Text style={styles.planCardBadgeText}>Billed annually. Cancel anytime.</Text>
+                  </View>
+                )}
+                {selectedPlan === 'free_trial' && (
+                  <View style={styles.planBadgeAbove}>
+                    <Text style={styles.planCardBadgeText}>Only $1.50 per month after trial. Cancel anytime before trial ends.</Text>
+                  </View>
+                )}
               </View>
-            ))}
-          </View>
-
-          <View style={styles.bottomBlock}>
-            <View style={styles.planCardsRow}>
+              <View style={styles.planCardsRow}>
               <View style={styles.planCardColumn}>
-                <View style={styles.planBadgeSlot}>
-                  {selectedPlan === 'yearly' && (
-                    <View style={styles.planBadgeAbove}>
-                      <Text style={styles.planCardBadgeText}>Billed annually. Cancel anytime.</Text>
-                    </View>
-                  )}
-                </View>
                 <Pressable
                   style={[styles.planCard, selectedPlan === 'yearly' && styles.planCardSelected]}
                   onPress={() => setSelectedPlan('yearly')}
@@ -117,16 +123,7 @@ export default function SubscriptionScreen({ onComplete, onSkip }: SubscriptionS
                   <Text style={[styles.planCardBenefit, styles.planCardBenefitCenter]}>Only $1.50 per month</Text>
                 </Pressable>
               </View>
-
               <View style={styles.planCardColumn}>
-                <View style={styles.planBadgeSlot}>
-                  {selectedPlan === 'free_trial' && (
-                    <View style={styles.planBadgeAbove}>
-                      <Text style={styles.planCardBadgeText}>Only $1.50 per month after trial</Text>
-                      <Text style={[styles.planCardBadgeText, { marginTop: 2 }]}>Cancel anytime before trial ends.</Text>
-                    </View>
-                  )}
-                </View>
                 <Pressable
                   style={[styles.planCard, selectedPlan === 'free_trial' && styles.planCardSelected]}
                   onPress={() => setSelectedPlan('free_trial')}
@@ -141,27 +138,29 @@ export default function SubscriptionScreen({ onComplete, onSkip }: SubscriptionS
                   <Text style={[styles.planCardBenefit, styles.planCardBenefitCenter]}>Then $18 / year</Text>
                 </Pressable>
               </View>
+              </View>
             </View>
+          </ScrollView>
 
+          <View style={styles.fixedBottomSection}>
             <TouchableOpacity style={styles.ctaButton} onPress={onComplete} activeOpacity={0.9}>
-              <Text style={styles.ctaText}>Continue</Text>
+              <Text style={styles.ctaText}>Try Free for 3 Days</Text>
             </TouchableOpacity>
-
             <View style={styles.footer}>
-            <TouchableOpacity onPress={handleRestore}>
-              <Text style={styles.footerLink}>Restore</Text>
-            </TouchableOpacity>
-            <Text style={styles.footerDot}>•</Text>
-            <TouchableOpacity onPress={() => setShowPrivacyModal(true)}>
-              <Text style={styles.footerLink}>Privacy</Text>
-            </TouchableOpacity>
-            <Text style={styles.footerDot}>•</Text>
-            <TouchableOpacity onPress={() => setShowTermsModal(true)}>
-              <Text style={styles.footerLink}>Terms</Text>
-            </TouchableOpacity>
+              <TouchableOpacity onPress={handleRestore}>
+                <Text style={styles.footerLink}>Restore</Text>
+              </TouchableOpacity>
+              <Text style={styles.footerDot}>•</Text>
+              <TouchableOpacity onPress={() => setShowPrivacyModal(true)}>
+                <Text style={styles.footerLink}>Privacy</Text>
+              </TouchableOpacity>
+              <Text style={styles.footerDot}>•</Text>
+              <TouchableOpacity onPress={() => setShowTermsModal(true)}>
+                <Text style={styles.footerLink}>Terms</Text>
+              </TouchableOpacity>
+            </View>
           </View>
-          </View>
-        </ScrollView>
+        </View>
       </SafeAreaView>
 
       <Modal visible={showTermsModal} animationType="slide" onRequestClose={() => setShowTermsModal(false)}>
@@ -215,33 +214,47 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  mainLayout: {
+    flex: 1,
+  },
   scroll: {
     flex: 1,
   },
   scrollContent: {
+    flexGrow: 1,
     paddingHorizontal: PADDING_H,
-    paddingTop: 56,
+    paddingTop: 48,
+    paddingBottom: 32,
   },
-  bottomBlock: {
-    marginTop: 'auto',
+  cardsBlockWrap: {
+    marginTop: -32,
     paddingTop: 28,
+  },
+  fixedBottomSection: {
+    marginTop: 'auto',
+    paddingHorizontal: PADDING_H,
+    paddingTop: 20,
+    paddingBottom: 20,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: CARD_BORDER,
+    backgroundColor: SCREEN_BG_BOTTOM,
   },
   title: {
     fontSize: 26,
     fontWeight: '700',
     color: TEXT_DARK,
     textAlign: 'center',
-    marginBottom: 8,
+    marginBottom: 12,
   },
   subtitle: {
     fontSize: 16,
     color: TEXT_CAPTION,
     textAlign: 'center',
-    marginBottom: 28,
+    marginBottom: 32,
   },
   featuresList: {
     marginBottom: 28,
-    gap: 20,
+    gap: 22,
   },
   featureRow: {
     flexDirection: 'row',
@@ -269,32 +282,34 @@ const styles = StyleSheet.create({
     color: TEXT_CAPTION,
     lineHeight: 20,
   },
+  planBadgeFullWidth: {
+    width: '100%',
+    minHeight: 52,
+    marginBottom: 16,
+    justifyContent: 'center',
+  },
+  planBadgeAbove: {
+    width: '100%',
+    alignSelf: 'stretch',
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    backgroundColor: 'rgba(147, 89, 255, 0.12)',
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   planCardsRow: {
     flexDirection: 'row',
-    gap: 12,
-    marginBottom: 24,
+    gap: 16,
+    marginBottom: 28,
   },
   planCardColumn: {
     flex: 1,
     minWidth: 0,
   },
-  planBadgeSlot: {
-    minHeight: 44,
-    marginBottom: 4,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  planBadgeAbove: {
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    backgroundColor: 'rgba(147, 89, 255, 0.12)',
-    borderRadius: 8,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
   planCard: {
-    flex: 1,
-    minHeight: 152,
+    width: '100%',
+    height: 160,
     backgroundColor: CARD_BG,
     borderRadius: 16,
     borderWidth: 2,
@@ -302,6 +317,7 @@ const styles = StyleSheet.create({
     paddingVertical: 18,
     paddingHorizontal: 12,
     alignItems: 'center',
+    justifyContent: 'center',
     position: 'relative',
   },
   planCardSelected: {
@@ -319,10 +335,10 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   planCardBadgeText: {
-    fontSize: 10,
+    fontSize: 13,
     color: TEXT_CAPTION,
     textAlign: 'center',
-    lineHeight: 14,
+    lineHeight: 18,
   },
   planCardIcon: {
     marginBottom: 12,
