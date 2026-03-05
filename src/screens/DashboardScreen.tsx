@@ -12,12 +12,10 @@ import {
   TextInput,
   Animated,
   Dimensions,
-  Linking,
   Platform,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import * as MailComposer from 'expo-mail-composer';
-import * as Device from 'expo-device';
+import * as StoreReview from 'expo-store-review';
 import { useNavigation } from '@react-navigation/native';
 import Constants from 'expo-constants';
 const { height: SCREEN_HEIGHT, width: SCREEN_WIDTH } = Dimensions.get('window');
@@ -25,19 +23,13 @@ const APP_VERSION = Constants.expoConfig?.version ?? '1.0.0';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { Colors } from '../constants/colors';
-import { FEEDBACK_EMAIL } from '../constants/legalContent';
 import {
   RATING_STORAGE_KEYS,
   VISIT_THRESHOLD,
-  REMIND_LATER_VISITS_DELTA,
-  getAppStoreReviewUrl,
 } from '../constants/ratingConfig';
-import RatingPopup from '../components/RatingPopup';
 import DocumentViewerScreen from './DocumentViewerScreen';
 import { shareDocumentAsPdf } from '../services/pdfService';
 import { useSubscription } from '../contexts/SubscriptionContext';
-
-const APP_NAME = 'SimpleScan (Document Scanner)';
 
 interface Document {
   id: string;
@@ -160,104 +152,37 @@ export default function DashboardScreen({
   const [newDocName, setNewDocName] = useState('');
   const [showConvertModal, setShowConvertModal] = useState(false);
   const [localDocuments, setLocalDocuments] = useState<Document[]>([]);
-  const [showRatingPopup, setShowRatingPopup] = useState(false);
   const insets = useSafeAreaInsets();
 
   useEffect(() => {
     let mounted = true;
     (async () => {
       try {
-        const [visitStr, dismissedStr, completedStr, remindStr] = await Promise.all([
+        const [visitStr, requestedStr] = await Promise.all([
           AsyncStorage.getItem(RATING_STORAGE_KEYS.VISIT_COUNT),
-          AsyncStorage.getItem(RATING_STORAGE_KEYS.DISMISSED),
-          AsyncStorage.getItem(RATING_STORAGE_KEYS.COMPLETED),
-          AsyncStorage.getItem(RATING_STORAGE_KEYS.REMIND_AFTER_VISITS),
+          AsyncStorage.getItem(RATING_STORAGE_KEYS.NATIVE_REQUESTED),
         ]);
         const visits = Math.max(0, parseInt(visitStr || '0', 10)) + 1;
         await AsyncStorage.setItem(RATING_STORAGE_KEYS.VISIT_COUNT, String(visits));
         if (!mounted) return;
-        if (dismissedStr === 'true' || completedStr === 'true') return;
-        const remindAfter = remindStr ? parseInt(remindStr, 10) : null;
-        const shouldShow = visits >= VISIT_THRESHOLD && (remindAfter == null || visits >= remindAfter);
-        if (shouldShow) setShowRatingPopup(true);
+        if (requestedStr === 'true') return;
+        if (visits < VISIT_THRESHOLD) return;
+        if (Platform.OS !== 'ios') return;
+        try {
+          const available = await StoreReview.isAvailableAsync();
+          if (available) {
+            await StoreReview.requestReview();
+            await AsyncStorage.setItem(RATING_STORAGE_KEYS.NATIVE_REQUESTED, 'true');
+          }
+        } catch (_e) {
+          if (__DEV__) console.warn('StoreReview.requestReview error');
+        }
       } catch (_e) {
         if (__DEV__) console.warn('Rating visit count error');
       }
     })();
     return () => { mounted = false; };
   }, []);
-
-  const openLowRatingFeedbackMail = async () => {
-    const osVersionLabel = Platform.OS === 'ios' ? 'iOS Version' : 'Android Version';
-    const osVersion = typeof Device?.osVersion === 'string' ? Device.osVersion : String(Platform.Version ?? '');
-    const deviceModel = typeof Device?.modelName === 'string' ? Device.modelName : 'Unknown';
-    const body = [
-      '---',
-      `App: ${APP_NAME}`,
-      `Version: ${APP_VERSION}`,
-      `${osVersionLabel}: ${osVersion}`,
-      `Device: ${deviceModel}`,
-      '---',
-      '',
-      'I gave a low in-app rating. Here’s why:',
-      '',
-    ].join('\n');
-    const subject = `${APP_NAME} – In-app rating feedback`;
-    try {
-      const available = await MailComposer.isAvailableAsync();
-      if (available) {
-        await MailComposer.composeAsync({
-          recipients: [FEEDBACK_EMAIL],
-          subject,
-          body,
-        });
-      } else {
-        const url = `mailto:${FEEDBACK_EMAIL}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
-        await Linking.openURL(url);
-      }
-    } catch {
-      Alert.alert('Error', 'Could not open email. Please try again from Account → Feedback.');
-    }
-  };
-
-  const handleRatingRateNow = async (stars: number) => {
-    setShowRatingPopup(false);
-    await AsyncStorage.setItem(RATING_STORAGE_KEYS.COMPLETED, 'true');
-    if (stars >= 4) {
-      const url = getAppStoreReviewUrl();
-      if (url) {
-        try {
-          await Linking.openURL(url);
-        } catch {
-          Alert.alert('Error', 'Could not open the App Store.');
-        }
-      } else {
-        Alert.alert(
-          'Rate on App Store',
-          'You can rate SimpleScan in the App Store when you’re ready.',
-          [{ text: 'OK' }]
-        );
-      }
-    } else {
-      await openLowRatingFeedbackMail();
-    }
-  };
-
-  const handleRatingRemindLater = async () => {
-    setShowRatingPopup(false);
-    try {
-      const visitStr = await AsyncStorage.getItem(RATING_STORAGE_KEYS.VISIT_COUNT);
-      const visits = Math.max(0, parseInt(visitStr || '0', 10));
-      await AsyncStorage.setItem(RATING_STORAGE_KEYS.REMIND_AFTER_VISITS, String(visits + REMIND_LATER_VISITS_DELTA));
-    } catch (_e) {}
-  };
-
-  const handleRatingNoThanks = async () => {
-    setShowRatingPopup(false);
-    try {
-      await AsyncStorage.setItem(RATING_STORAGE_KEYS.DISMISSED, 'true');
-    } catch (_e) {}
-  };
 
   const handleOpenDocument = (doc: Document) => {
     setSelectedDocument(doc);
@@ -969,12 +894,6 @@ export default function DashboardScreen({
           </Animated.View>
         </View>
       </Modal>
-      <RatingPopup
-        visible={showRatingPopup}
-        onRateNow={handleRatingRateNow}
-        onRemindLater={handleRatingRemindLater}
-        onNoThanks={handleRatingNoThanks}
-      />
     </SafeAreaView>
   );
 }
