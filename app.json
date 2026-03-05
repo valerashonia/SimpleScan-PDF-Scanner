@@ -3,6 +3,11 @@
     "name": "SimpleScan",
     "slug": "DocumentScannerAi",
     "version": "1.0.0",
+    "extra": {
+      "ios": {
+        "appStoreId": ""
+      }
+    },
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
