@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -9,12 +9,16 @@ import {
   Modal,
   ScrollView,
   Alert,
+  ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
+import type { PurchasesPackage } from 'react-native-purchases';
 import { Colors } from '../constants/colors';
 import { TERMS_CONTENT, PRIVACY_CONTENT } from '../constants/legalContent';
+import { useSubscription } from '../contexts/SubscriptionContext';
+import { getOfferings } from '../services/subscriptionService';
 
 const PADDING_H = 24;
 const SCREEN_BG_TOP = '#F0F7FF';
@@ -32,7 +36,12 @@ const FEATURES = [
   { icon: 'share-social' as const, label: 'Share & Organize', caption: 'Export and share your PDFs anytime.', color: '#3B82F6' },
 ];
 
-type PlanId = 'free_trial' | 'yearly';
+function getPackageLabel(pkg: PurchasesPackage): string {
+  const id = pkg.identifier.toLowerCase();
+  if (id.includes('annual') || id.includes('yearly') || pkg.packageType === 'ANNUAL') return 'Yearly';
+  if (id.includes('month') || pkg.packageType === 'MONTHLY') return 'Monthly';
+  return pkg.product.title || pkg.identifier;
+}
 
 interface SubscriptionScreenProps {
   onComplete: () => void;
@@ -41,17 +50,85 @@ interface SubscriptionScreenProps {
 
 export default function SubscriptionScreen({ onComplete, onSkip }: SubscriptionScreenProps) {
   const insets = useSafeAreaInsets();
-  const [selectedPlan, setSelectedPlan] = useState<PlanId>('free_trial');
+  const { purchasePackage, restorePurchases } = useSubscription();
+
+  const [monthlyPackage, setMonthlyPackage] = useState<PurchasesPackage | null>(null);
+  const [annualPackage, setAnnualPackage] = useState<PurchasesPackage | null>(null);
+  const [selectedPackage, setSelectedPackage] = useState<PurchasesPackage | null>(null);
+  const [loadingOfferings, setLoadingOfferings] = useState(true);
+  const [offeringsError, setOfferingsError] = useState<string | null>(null);
   const [showTermsModal, setShowTermsModal] = useState(false);
   const [showPrivacyModal, setShowPrivacyModal] = useState(false);
+  const [isPurchasing, setIsPurchasing] = useState(false);
+  const [isRestoring, setIsRestoring] = useState(false);
 
-  const handleRestore = () => {
-    Alert.alert(
-      'Restore Purchases',
-      'If you purchased premium on this Apple ID, restore will be available when in-app purchase is enabled.',
-      [{ text: 'OK' }]
-    );
+  const loadOfferings = useCallback(async () => {
+    setLoadingOfferings(true);
+    setOfferingsError(null);
+    try {
+      const offerings = await getOfferings();
+      const current = offerings?.current ?? null;
+      if (!current) {
+        setOfferingsError('No subscription plans available.');
+        setMonthlyPackage(null);
+        setAnnualPackage(null);
+        setSelectedPackage(null);
+        return;
+      }
+      const monthly = current.monthly ?? null;
+      const annual = current.annual ?? null;
+      setMonthlyPackage(monthly);
+      setAnnualPackage(annual);
+      setSelectedPackage(annual ?? monthly ?? current.availablePackages[0] ?? null);
+    } catch (e) {
+      const message = e instanceof Error ? e.message : 'Failed to load plans.';
+      setOfferingsError(message);
+      setMonthlyPackage(null);
+      setAnnualPackage(null);
+      setSelectedPackage(null);
+    } finally {
+      setLoadingOfferings(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadOfferings();
+  }, [loadOfferings]);
+
+  const handlePurchase = async () => {
+    if (!selectedPackage) {
+      Alert.alert('Select a Plan', 'Please select a subscription plan first.', [{ text: 'OK' }]);
+      return;
+    }
+    setIsPurchasing(true);
+    try {
+      const result = await purchasePackage(selectedPackage);
+      if (result.success) {
+        onComplete();
+        return;
+      }
+      Alert.alert('Purchase Failed', result.error ?? 'Something went wrong. Please try again.', [{ text: 'OK' }]);
+    } finally {
+      setIsPurchasing(false);
+    }
   };
+
+  const handleRestore = async () => {
+    setIsRestoring(true);
+    try {
+      const result = await restorePurchases();
+      if (result.success) {
+        onComplete();
+        return;
+      }
+      Alert.alert('Restore Purchases', result.error ?? 'No active subscription found for this Apple ID.', [{ text: 'OK' }]);
+    } finally {
+      setIsRestoring(false);
+    }
+  };
+
+  const isLoading = isPurchasing || isRestoring;
+  const hasPackages = monthlyPackage !== null || annualPackage !== null;
 
   return (
     <View style={styles.container}>
@@ -73,7 +150,7 @@ export default function SubscriptionScreen({ onComplete, onSkip }: SubscriptionS
             style={styles.scroll}
             contentContainerStyle={styles.scrollContent}
             showsVerticalScrollIndicator={false}
-            scrollEnabled={false}
+            scrollEnabled={true}
           >
             <Text style={styles.title}>Unlock SimpleScan Pro.</Text>
             <Text style={styles.subtitle}>Unlock unlimited scans and PDF export</Text>
@@ -93,64 +170,100 @@ export default function SubscriptionScreen({ onComplete, onSkip }: SubscriptionS
             </View>
 
             <View style={styles.cardsBlockWrap}>
-              <View style={styles.planBadgeFullWidth}>
-                {selectedPlan === 'yearly' && (
-                  <View style={styles.planBadgeAbove}>
-                    <Text style={styles.planCardBadgeText}>Billed annually. Cancel anytime.</Text>
-                  </View>
-                )}
-                {selectedPlan === 'free_trial' && (
-                  <View style={styles.planBadgeAbove}>
-                    <Text style={styles.planCardBadgeText}>Only $1.50 per month after trial. Cancel anytime before trial ends.</Text>
-                  </View>
-                )}
-              </View>
-              <View style={styles.planCardsRow}>
-              <View style={styles.planCardColumn}>
-                <Pressable
-                  style={[styles.planCard, selectedPlan === 'yearly' && styles.planCardSelected]}
-                  onPress={() => setSelectedPlan('yearly')}
-                >
-                  {selectedPlan === 'yearly' && (
-                    <View style={styles.planCardCheck}>
-                      <Ionicons name="checkmark" size={14} color="#FFFFFF" />
+              {loadingOfferings ? (
+                <View style={styles.loadingOfferings}>
+                  <ActivityIndicator size="large" color={CARD_SELECTED_BORDER} />
+                  <Text style={styles.loadingOfferingsText}>Loading plans...</Text>
+                </View>
+              ) : offeringsError ? (
+                <View style={styles.offeringsError}>
+                  <Text style={styles.offeringsErrorText}>{offeringsError}</Text>
+                  <TouchableOpacity style={styles.retryButton} onPress={loadOfferings}>
+                    <Text style={styles.retryButtonText}>Retry</Text>
+                  </TouchableOpacity>
+                </View>
+              ) : hasPackages ? (
+                <>
+                  <View style={styles.planBadgeFullWidth}>
+                    <View style={styles.planBadgeAbove}>
+                      <Text style={styles.planCardBadgeText}>Cancel anytime. Billed via your App Store account.</Text>
                     </View>
-                  )}
-                  <Ionicons name="calendar-outline" size={24} color={TEXT_CAPTION} style={styles.planCardIcon} />
-                  <Text style={styles.planCardPrice}>
-                    $18 <Text style={styles.planCardPriceSuffix}>/year</Text>
-                  </Text>
-                  <Text style={[styles.planCardBenefit, styles.planCardBenefitCenter]}>Only $1.50 per month</Text>
-                </Pressable>
-              </View>
-              <View style={styles.planCardColumn}>
-                <Pressable
-                  style={[styles.planCard, selectedPlan === 'free_trial' && styles.planCardSelected]}
-                  onPress={() => setSelectedPlan('free_trial')}
-                >
-                  {selectedPlan === 'free_trial' && (
-                    <View style={styles.planCardCheck}>
-                      <Ionicons name="checkmark" size={14} color="#FFFFFF" />
-                    </View>
-                  )}
-                  <Ionicons name="flash-outline" size={24} color={TEXT_CAPTION} style={styles.planCardIcon} />
-                  <Text style={[styles.planCardName, styles.planCardTextCenter, { marginBottom: 8 }]}>3 Days Free</Text>
-                  <Text style={[styles.planCardBenefit, styles.planCardBenefitCenter]}>Then $18 / year</Text>
-                </Pressable>
-              </View>
-              </View>
+                  </View>
+                  <View style={styles.planCardsRow}>
+                    {annualPackage && (
+                      <View style={styles.planCardColumn}>
+                        <Pressable
+                          style={[
+                            styles.planCard,
+                            selectedPackage?.identifier === annualPackage.identifier && styles.planCardSelected,
+                          ]}
+                          onPress={() => setSelectedPackage(annualPackage)}
+                        >
+                          {selectedPackage?.identifier === annualPackage.identifier && (
+                            <View style={styles.planCardCheck}>
+                              <Ionicons name="checkmark" size={14} color="#FFFFFF" />
+                            </View>
+                          )}
+                          <Ionicons name="calendar-outline" size={24} color={TEXT_CAPTION} style={styles.planCardIcon} />
+                          <Text style={styles.planCardPrice}>
+                            {annualPackage.product.priceString}
+                            <Text style={styles.planCardPriceSuffix}> /year</Text>
+                          </Text>
+                          <Text style={[styles.planCardBenefit, styles.planCardBenefitCenter]}>
+                            {getPackageLabel(annualPackage)}
+                          </Text>
+                        </Pressable>
+                      </View>
+                    )}
+                    {monthlyPackage && (
+                      <View style={styles.planCardColumn}>
+                        <Pressable
+                          style={[
+                            styles.planCard,
+                            selectedPackage?.identifier === monthlyPackage.identifier && styles.planCardSelected,
+                          ]}
+                          onPress={() => setSelectedPackage(monthlyPackage)}
+                        >
+                          {selectedPackage?.identifier === monthlyPackage.identifier && (
+                            <View style={styles.planCardCheck}>
+                              <Ionicons name="checkmark" size={14} color="#FFFFFF" />
+                            </View>
+                          )}
+                          <Ionicons name="flash-outline" size={24} color={TEXT_CAPTION} style={styles.planCardIcon} />
+                          <Text style={styles.planCardPrice}>{monthlyPackage.product.priceString}</Text>
+                          <Text style={[styles.planCardBenefit, styles.planCardBenefitCenter]}>
+                            {getPackageLabel(monthlyPackage)} • per month
+                          </Text>
+                        </Pressable>
+                      </View>
+                    )}
+                  </View>
+                </>
+              ) : null}
             </View>
           </ScrollView>
 
           <View style={styles.fixedBottomSection}>
-            <TouchableOpacity style={styles.ctaButton} onPress={onComplete} activeOpacity={0.9}>
-              <Text style={styles.ctaText}>Try Free for 3 Days</Text>
+            <TouchableOpacity
+              style={[styles.ctaButton, (isLoading || !selectedPackage) && styles.ctaButtonDisabled]}
+              onPress={handlePurchase}
+              activeOpacity={0.9}
+              disabled={isLoading || !selectedPackage}
+            >
+              {isPurchasing ? (
+                <ActivityIndicator color="#FFFFFF" size="small" />
+              ) : (
+                <Text style={styles.ctaText}>Try Free / Upgrade</Text>
+              )}
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.restoreButton, isLoading && styles.ctaButtonDisabled]}
+              onPress={handleRestore}
+              disabled={isLoading}
+            >
+              <Text style={styles.restoreButtonText}>Restore Purchases</Text>
             </TouchableOpacity>
             <View style={styles.footer}>
-              <TouchableOpacity onPress={handleRestore}>
-                <Text style={styles.footerLink}>Restore</Text>
-              </TouchableOpacity>
-              <Text style={styles.footerDot}>•</Text>
               <TouchableOpacity onPress={() => setShowPrivacyModal(true)}>
                 <Text style={styles.footerLink}>Privacy</Text>
               </TouchableOpacity>
@@ -229,6 +342,39 @@ const styles = StyleSheet.create({
   cardsBlockWrap: {
     marginTop: -32,
     paddingTop: 28,
+  },
+  loadingOfferings: {
+    minHeight: 200,
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: 12,
+  },
+  loadingOfferingsText: {
+    fontSize: 15,
+    color: TEXT_CAPTION,
+  },
+  offeringsError: {
+    minHeight: 160,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 24,
+  },
+  offeringsErrorText: {
+    fontSize: 15,
+    color: TEXT_CAPTION,
+    textAlign: 'center',
+    marginBottom: 16,
+  },
+  retryButton: {
+    paddingVertical: 10,
+    paddingHorizontal: 20,
+    backgroundColor: CTA_BG,
+    borderRadius: 10,
+  },
+  retryButtonText: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#FFFFFF',
   },
   fixedBottomSection: {
     marginTop: 'auto',
@@ -309,7 +455,7 @@ const styles = StyleSheet.create({
   },
   planCard: {
     width: '100%',
-    height: 160,
+    minHeight: 160,
     backgroundColor: CARD_BG,
     borderRadius: 16,
     borderWidth: 2,
@@ -343,18 +489,6 @@ const styles = StyleSheet.create({
   planCardIcon: {
     marginBottom: 12,
   },
-  planCardNameWrap: {
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  planCardName: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: TEXT_DARK,
-  },
-  planCardTextCenter: {
-    textAlign: 'center',
-  },
   planCardPrice: {
     fontSize: 18,
     fontWeight: '700',
@@ -379,12 +513,26 @@ const styles = StyleSheet.create({
     paddingVertical: 16,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 20,
+    marginBottom: 12,
+  },
+  ctaButtonDisabled: {
+    opacity: 0.7,
   },
   ctaText: {
     fontSize: 17,
     fontWeight: '700',
     color: '#FFFFFF',
+  },
+  restoreButton: {
+    paddingVertical: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 16,
+  },
+  restoreButtonText: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: CARD_SELECTED_BORDER,
   },
   footer: {
     flexDirection: 'row',

@@ -1,5 +1,12 @@
 import React, { createContext, useContext, useState, useCallback, useRef, useEffect } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import type { PurchasesPackage } from 'react-native-purchases';
+import {
+  getCustomerInfo,
+  hasPremiumEntitlement,
+  purchasePackage as purchasePackageIAP,
+  restorePurchases as restorePurchasesIAP,
+} from '../services/subscriptionService';
 
 const STORAGE_KEY_PREMIUM = '@docify_premium';
 const STORAGE_KEY_SCAN_DATE = '@docify_scan_date';
@@ -9,6 +16,11 @@ const DAILY_SCAN_LIMIT_FREE = 1;
 function getTodayDateKey(): string {
   const d = new Date();
   return `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
+}
+
+export interface PurchaseResult {
+  success: boolean;
+  error?: string;
 }
 
 interface SubscriptionContextType {
@@ -22,6 +34,8 @@ interface SubscriptionContextType {
   setPremium: (value: boolean) => Promise<void>;
   showUpgrade: (reason?: string) => void;
   setShowUpgradeCallback: (cb: (() => void) | null) => void;
+  purchasePackage: (pkg: PurchasesPackage) => Promise<PurchaseResult>;
+  restorePurchases: () => Promise<PurchaseResult>;
 }
 
 const SubscriptionContext = createContext<SubscriptionContextType | null>(null);
@@ -57,6 +71,16 @@ export function SubscriptionProvider({ children }: { children: React.ReactNode }
     loadState();
   }, [loadState]);
 
+  useEffect(() => {
+    (async () => {
+      const info = await getCustomerInfo();
+      if (info && hasPremiumEntitlement(info)) {
+        setIsPremium(true);
+        await AsyncStorage.setItem(STORAGE_KEY_PREMIUM, 'true');
+      }
+    })();
+  }, []);
+
   const setPremium = useCallback(async (value: boolean) => {
     setIsPremium(value);
     await AsyncStorage.setItem(STORAGE_KEY_PREMIUM, value ? 'true' : 'false');
@@ -91,6 +115,25 @@ export function SubscriptionProvider({ children }: { children: React.ReactNode }
     showUpgradeCallbackRef.current = cb;
   }, []);
 
+  const purchasePackage = useCallback(
+    async (pkg: PurchasesPackage): Promise<PurchaseResult> => {
+      const result = await purchasePackageIAP(pkg);
+      if (result.success) {
+        await setPremium(true);
+      }
+      return result;
+    },
+    [setPremium]
+  );
+
+  const restorePurchases = useCallback(async (): Promise<PurchaseResult> => {
+    const result = await restorePurchasesIAP();
+    if (result.success) {
+      await setPremium(true);
+    }
+    return result;
+  }, [setPremium]);
+
   const value: SubscriptionContextType = {
     isPremium,
     scansUsedToday,
@@ -102,6 +145,8 @@ export function SubscriptionProvider({ children }: { children: React.ReactNode }
     setPremium,
     showUpgrade,
     setShowUpgradeCallback,
+    purchasePackage,
+    restorePurchases,
   };
 
   return (

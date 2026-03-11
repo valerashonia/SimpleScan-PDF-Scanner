@@ -1,4 +1,6 @@
 import React, { useState, useEffect } from 'react';
+import { Platform } from 'react-native';
+import Purchases from 'react-native-purchases';
 import { StatusBar } from 'expo-status-bar';
 import { NavigationContainer } from '@react-navigation/native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
@@ -23,6 +25,15 @@ function RegisterUpgradeCallback({ setAppState }: { setAppState: (s: AppState) =
 function AppContent() {
   const [appState, setAppState] = useState<AppState>('splash');
   const { setPremium } = useSubscription();
+
+  useEffect(() => {
+    const initRevenueCat = async () => {
+      await Purchases.configure({
+        apiKey: 'test_ShAmkdhwQWYtOSwdvbuSlDucihk',
+      });
+    };
+    initRevenueCat();
+  }, []);
 
   const handleSplashComplete = async () => {
     try {
