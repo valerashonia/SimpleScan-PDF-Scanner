@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Platform } from 'react-native';
-import Purchases from 'react-native-purchases';
+import Adapty from 'react-native-adapty';
 import { StatusBar } from 'expo-status-bar';
 import { NavigationContainer } from '@react-navigation/native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
@@ -27,12 +26,23 @@ function AppContent() {
   const { setPremium } = useSubscription();
 
   useEffect(() => {
-    const initRevenueCat = async () => {
-      await Purchases.configure({
-        apiKey: 'test_ShAmkdhwQWYtOSwdvbuSlDucihk',
-      });
+    const initAdapty = async () => {
+      // Public SDK key from Adapty Dashboard → App settings → Public SDK key (set in .env as EXPO_PUBLIC_ADAPTY_PUBLIC_SDK_KEY or in EAS Secrets for production)
+      const adaptyKey = (process.env.EXPO_PUBLIC_ADAPTY_PUBLIC_SDK_KEY ?? '').trim();
+      if (!adaptyKey) {
+        return;
+      }
+      try {
+        await Adapty.activate(adaptyKey, {
+          __ignoreActivationOnFastRefresh: __DEV__,
+        });
+      } catch (e) {
+        if (__DEV__) {
+          console.warn('[Adapty] Activate failed:', e);
+        }
+      }
     };
-    initRevenueCat();
+    initAdapty();
   }, []);
 
   const handleSplashComplete = async () => {

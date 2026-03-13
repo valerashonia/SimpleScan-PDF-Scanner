@@ -1,11 +1,10 @@
 /**
- * RevenueCat configuration.
- * Get your iOS API key from RevenueCat Dashboard → Project → API keys.
- * Create an entitlement (e.g. "premium") and attach your App Store Connect
- * yearly subscription product with a 3-day free trial.
+ * Adapty configuration.
+ * Set EXPO_PUBLIC_ADAPTY_PUBLIC_SDK_KEY in .env (from Adapty Dashboard → App settings → General).
+ * Create a placement and paywall in the Adapty Dashboard and use the placement id below.
  */
-export const REVENUECAT_API_KEY_IOS = process.env.EXPO_PUBLIC_REVENUECAT_API_KEY_IOS ?? '';
-export const REVENUECAT_API_KEY_ANDROID = process.env.EXPO_PUBLIC_REVENUECAT_API_KEY_ANDROID ?? '';
+/** Placement id for the subscription paywall (configure in Adapty Dashboard) */
+export const ADAPTY_PLACEMENT_ID = process.env.EXPO_PUBLIC_ADAPTY_PLACEMENT_ID ?? 'main';
 
-/** Entitlement identifier configured in RevenueCat */
-export const ENTITLEMENT_PRO = 'pro';
+/** Access level id that grants premium (configure in Adapty Dashboard) */
+export const ADAPTY_ACCESS_LEVEL_PRO = 'pro';

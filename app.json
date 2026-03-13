@@ -1,14 +1,15 @@
 {
   "expo": {
+    "owner": "valera1993",
     "name": "SimpleScan",
     "slug": "DocumentScannerAi",
     "version": "1.0.0",
     "extra": {
       "ios": {
-        "appStoreId": ""
+        "appStoreId": "6760415997"
       },
       "eas": {
-        "projectId": "e2542b62-8a17-4b41-b6c3-acd3357eb517"
+        "projectId": "fda978da-04af-4e10-9f3f-1f2fbf6aaf4d"
       }
     },
     "orientation": "portrait",
@@ -21,6 +22,7 @@
       "backgroundColor": "#ffffff"
     },
     "ios": {
+      "buildNumber": "5",
       "supportsTablet": true,
       "infoPlist": {
         "NSCameraUsageDescription": "This app uses the camera to scan documents.",
@@ -41,10 +43,6 @@
         "android.permission.CAMERA",
         "android.permission.READ_EXTERNAL_STORAGE",
         "android.permission.WRITE_EXTERNAL_STORAGE",
-        "android.permission.RECORD_AUDIO",
-        "android.permission.CAMERA",
-        "android.permission.READ_EXTERNAL_STORAGE",
-        "android.permission.WRITE_EXTERNAL_STORAGE",
         "android.permission.RECORD_AUDIO"
       ],
       "package": "com.valera.simplescan"
@@ -53,6 +51,14 @@
       "favicon": "./assets/favicon.png"
     },
     "plugins": [
+      [
+        "expo-build-properties",
+        {
+          "ios": {
+            "deploymentTarget": "15.1"
+          }
+        }
+      ],
       [
         "expo-camera",
         {
@@ -65,7 +71,8 @@
           "photosPermission": "Allow Document Scanner to access your photos to import documents."
         }
       ],
-      "expo-mail-composer"
+      "expo-mail-composer",
+      "react-native-adapty"
     ]
   }
 }

@@ -1,10 +1,10 @@
 import React, { createContext, useContext, useState, useCallback, useRef, useEffect } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import type { PurchasesPackage } from 'react-native-purchases';
+import type { AdaptyPaywallProduct } from 'react-native-adapty';
 import {
-  getCustomerInfo,
-  hasPremiumEntitlement,
-  purchasePackage as purchasePackageIAP,
+  getProfile,
+  hasPremiumAccess,
+  makePurchase as makePurchaseIAP,
   restorePurchases as restorePurchasesIAP,
 } from '../services/subscriptionService';
 
@@ -34,7 +34,7 @@ interface SubscriptionContextType {
   setPremium: (value: boolean) => Promise<void>;
   showUpgrade: (reason?: string) => void;
   setShowUpgradeCallback: (cb: (() => void) | null) => void;
-  purchasePackage: (pkg: PurchasesPackage) => Promise<PurchaseResult>;
+  purchaseProduct: (product: AdaptyPaywallProduct) => Promise<PurchaseResult>;
   restorePurchases: () => Promise<PurchaseResult>;
 }
 
@@ -73,8 +73,8 @@ export function SubscriptionProvider({ children }: { children: React.ReactNode }
 
   useEffect(() => {
     (async () => {
-      const info = await getCustomerInfo();
-      if (info && hasPremiumEntitlement(info)) {
+      const profile = await getProfile();
+      if (profile && hasPremiumAccess(profile)) {
         setIsPremium(true);
         await AsyncStorage.setItem(STORAGE_KEY_PREMIUM, 'true');
       }
@@ -115,9 +115,9 @@ export function SubscriptionProvider({ children }: { children: React.ReactNode }
     showUpgradeCallbackRef.current = cb;
   }, []);
 
-  const purchasePackage = useCallback(
-    async (pkg: PurchasesPackage): Promise<PurchaseResult> => {
-      const result = await purchasePackageIAP(pkg);
+  const purchaseProduct = useCallback(
+    async (product: AdaptyPaywallProduct): Promise<PurchaseResult> => {
+      const result = await makePurchaseIAP(product);
       if (result.success) {
         await setPremium(true);
       }
@@ -145,7 +145,7 @@ export function SubscriptionProvider({ children }: { children: React.ReactNode }
     setPremium,
     showUpgrade,
     setShowUpgradeCallback,
-    purchasePackage,
+    purchaseProduct,
     restorePurchases,
   };
 

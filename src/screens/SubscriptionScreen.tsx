@@ -14,11 +14,11 @@ import {
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import type { PurchasesPackage } from 'react-native-purchases';
+import type { AdaptyPaywallProduct } from 'react-native-adapty';
 import { Colors } from '../constants/colors';
 import { TERMS_CONTENT, PRIVACY_CONTENT } from '../constants/legalContent';
 import { useSubscription } from '../contexts/SubscriptionContext';
-import { getOfferings } from '../services/subscriptionService';
+import { getPaywall, getPaywallProducts } from '../services/subscriptionService';
 
 const PADDING_H = 24;
 const SCREEN_BG_TOP = '#F0F7FF';
@@ -36,11 +36,12 @@ const FEATURES = [
   { icon: 'share-social' as const, label: 'Share & Organize', caption: 'Export and share your PDFs anytime.', color: '#3B82F6' },
 ];
 
-function getPackageLabel(pkg: PurchasesPackage): string {
-  const id = pkg.identifier.toLowerCase();
-  if (id.includes('annual') || id.includes('yearly') || pkg.packageType === 'ANNUAL') return 'Yearly';
-  if (id.includes('month') || pkg.packageType === 'MONTHLY') return 'Monthly';
-  return pkg.product.title || pkg.identifier;
+function getProductTitle(product: AdaptyPaywallProduct): string {
+  return product.localizedTitle ?? product.vendorProductId ?? '';
+}
+
+function getProductPriceString(product: AdaptyPaywallProduct): string {
+  return product.price?.localizedString ?? product.price?.formatted ?? '—';
 }
 
 interface SubscriptionScreenProps {
@@ -50,59 +51,53 @@ interface SubscriptionScreenProps {
 
 export default function SubscriptionScreen({ onComplete, onSkip }: SubscriptionScreenProps) {
   const insets = useSafeAreaInsets();
-  const { purchasePackage, restorePurchases } = useSubscription();
+  const { purchaseProduct, restorePurchases } = useSubscription();
 
-  const [monthlyPackage, setMonthlyPackage] = useState<PurchasesPackage | null>(null);
-  const [annualPackage, setAnnualPackage] = useState<PurchasesPackage | null>(null);
-  const [selectedPackage, setSelectedPackage] = useState<PurchasesPackage | null>(null);
-  const [loadingOfferings, setLoadingOfferings] = useState(true);
-  const [offeringsError, setOfferingsError] = useState<string | null>(null);
+  const [products, setProducts] = useState<AdaptyPaywallProduct[]>([]);
+  const [selectedProduct, setSelectedProduct] = useState<AdaptyPaywallProduct | null>(null);
+  const [loadingProducts, setLoadingProducts] = useState(true);
+  const [productsError, setProductsError] = useState<string | null>(null);
   const [showTermsModal, setShowTermsModal] = useState(false);
   const [showPrivacyModal, setShowPrivacyModal] = useState(false);
   const [isPurchasing, setIsPurchasing] = useState(false);
   const [isRestoring, setIsRestoring] = useState(false);
 
-  const loadOfferings = useCallback(async () => {
-    setLoadingOfferings(true);
-    setOfferingsError(null);
+  const loadProducts = useCallback(async () => {
+    setLoadingProducts(true);
+    setProductsError(null);
     try {
-      const offerings = await getOfferings();
-      const current = offerings?.current ?? null;
-      if (!current) {
-        setOfferingsError('No subscription plans available.');
-        setMonthlyPackage(null);
-        setAnnualPackage(null);
-        setSelectedPackage(null);
+      const paywall = await getPaywall();
+      if (!paywall) {
+        setProductsError('No subscription plans available.');
+        setProducts([]);
+        setSelectedProduct(null);
         return;
       }
-      const monthly = current.monthly ?? null;
-      const annual = current.annual ?? null;
-      setMonthlyPackage(monthly);
-      setAnnualPackage(annual);
-      setSelectedPackage(annual ?? monthly ?? current.availablePackages[0] ?? null);
+      const list = await getPaywallProducts(paywall);
+      setProducts(list);
+      setSelectedProduct(list[0] ?? null);
     } catch (e) {
       const message = e instanceof Error ? e.message : 'Failed to load plans.';
-      setOfferingsError(message);
-      setMonthlyPackage(null);
-      setAnnualPackage(null);
-      setSelectedPackage(null);
+      setProductsError(message);
+      setProducts([]);
+      setSelectedProduct(null);
     } finally {
-      setLoadingOfferings(false);
+      setLoadingProducts(false);
     }
   }, []);
 
   useEffect(() => {
-    loadOfferings();
-  }, [loadOfferings]);
+    loadProducts();
+  }, [loadProducts]);
 
   const handlePurchase = async () => {
-    if (!selectedPackage) {
+    if (!selectedProduct) {
       Alert.alert('Select a Plan', 'Please select a subscription plan first.', [{ text: 'OK' }]);
       return;
     }
     setIsPurchasing(true);
     try {
-      const result = await purchasePackage(selectedPackage);
+      const result = await purchaseProduct(selectedProduct);
       if (result.success) {
         onComplete();
         return;
@@ -128,7 +123,7 @@ export default function SubscriptionScreen({ onComplete, onSkip }: SubscriptionS
   };
 
   const isLoading = isPurchasing || isRestoring;
-  const hasPackages = monthlyPackage !== null || annualPackage !== null;
+  const hasProducts = products.length > 0;
 
   return (
     <View style={styles.container}>
@@ -170,19 +165,19 @@ export default function SubscriptionScreen({ onComplete, onSkip }: SubscriptionS
             </View>
 
             <View style={styles.cardsBlockWrap}>
-              {loadingOfferings ? (
+              {loadingProducts ? (
                 <View style={styles.loadingOfferings}>
                   <ActivityIndicator size="large" color={CARD_SELECTED_BORDER} />
                   <Text style={styles.loadingOfferingsText}>Loading plans...</Text>
                 </View>
-              ) : offeringsError ? (
+              ) : productsError ? (
                 <View style={styles.offeringsError}>
-                  <Text style={styles.offeringsErrorText}>{offeringsError}</Text>
-                  <TouchableOpacity style={styles.retryButton} onPress={loadOfferings}>
+                  <Text style={styles.offeringsErrorText}>{productsError}</Text>
+                  <TouchableOpacity style={styles.retryButton} onPress={loadProducts}>
                     <Text style={styles.retryButtonText}>Retry</Text>
                   </TouchableOpacity>
                 </View>
-              ) : hasPackages ? (
+              ) : hasProducts ? (
                 <>
                   <View style={styles.planBadgeFullWidth}>
                     <View style={styles.planBadgeAbove}>
@@ -190,53 +185,30 @@ export default function SubscriptionScreen({ onComplete, onSkip }: SubscriptionS
                     </View>
                   </View>
                   <View style={styles.planCardsRow}>
-                    {annualPackage && (
-                      <View style={styles.planCardColumn}>
+                    {products.map((product) => (
+                      <View key={product.vendorProductId} style={styles.planCardColumn}>
                         <Pressable
                           style={[
                             styles.planCard,
-                            selectedPackage?.identifier === annualPackage.identifier && styles.planCardSelected,
+                            selectedProduct?.vendorProductId === product.vendorProductId && styles.planCardSelected,
                           ]}
-                          onPress={() => setSelectedPackage(annualPackage)}
+                          onPress={() => setSelectedProduct(product)}
                         >
-                          {selectedPackage?.identifier === annualPackage.identifier && (
+                          {selectedProduct?.vendorProductId === product.vendorProductId && (
                             <View style={styles.planCardCheck}>
                               <Ionicons name="checkmark" size={14} color="#FFFFFF" />
                             </View>
                           )}
                           <Ionicons name="calendar-outline" size={24} color={TEXT_CAPTION} style={styles.planCardIcon} />
+                          <Text style={styles.planCardTitle} numberOfLines={1}>
+                            {getProductTitle(product)}
+                          </Text>
                           <Text style={styles.planCardPrice}>
-                            {annualPackage.product.priceString}
-                            <Text style={styles.planCardPriceSuffix}> /year</Text>
-                          </Text>
-                          <Text style={[styles.planCardBenefit, styles.planCardBenefitCenter]}>
-                            {getPackageLabel(annualPackage)}
+                            {getProductPriceString(product)}
                           </Text>
                         </Pressable>
                       </View>
-                    )}
-                    {monthlyPackage && (
-                      <View style={styles.planCardColumn}>
-                        <Pressable
-                          style={[
-                            styles.planCard,
-                            selectedPackage?.identifier === monthlyPackage.identifier && styles.planCardSelected,
-                          ]}
-                          onPress={() => setSelectedPackage(monthlyPackage)}
-                        >
-                          {selectedPackage?.identifier === monthlyPackage.identifier && (
-                            <View style={styles.planCardCheck}>
-                              <Ionicons name="checkmark" size={14} color="#FFFFFF" />
-                            </View>
-                          )}
-                          <Ionicons name="flash-outline" size={24} color={TEXT_CAPTION} style={styles.planCardIcon} />
-                          <Text style={styles.planCardPrice}>{monthlyPackage.product.priceString}</Text>
-                          <Text style={[styles.planCardBenefit, styles.planCardBenefitCenter]}>
-                            {getPackageLabel(monthlyPackage)} • per month
-                          </Text>
-                        </Pressable>
-                      </View>
-                    )}
+                    ))}
                   </View>
                 </>
               ) : null}
@@ -245,10 +217,10 @@ export default function SubscriptionScreen({ onComplete, onSkip }: SubscriptionS
 
           <View style={styles.fixedBottomSection}>
             <TouchableOpacity
-              style={[styles.ctaButton, (isLoading || !selectedPackage) && styles.ctaButtonDisabled]}
+              style={[styles.ctaButton, (isLoading || !selectedProduct) && styles.ctaButtonDisabled]}
               onPress={handlePurchase}
               activeOpacity={0.9}
-              disabled={isLoading || !selectedPackage}
+              disabled={isLoading || !selectedProduct}
             >
               {isPurchasing ? (
                 <ActivityIndicator color="#FFFFFF" size="small" />
@@ -446,12 +418,13 @@ const styles = StyleSheet.create({
   },
   planCardsRow: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     gap: 16,
     marginBottom: 28,
   },
   planCardColumn: {
     flex: 1,
-    minWidth: 0,
+    minWidth: 140,
   },
   planCard: {
     width: '100%',
@@ -488,6 +461,13 @@ const styles = StyleSheet.create({
   },
   planCardIcon: {
     marginBottom: 12,
+  },
+  planCardTitle: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: TEXT_DARK,
+    marginBottom: 6,
+    textAlign: 'center',
   },
   planCardPrice: {
     fontSize: 18,
