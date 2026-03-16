@@ -55,9 +55,9 @@ interface OnboardingScreenProps {
 }
 
 const ILLUSTRATION_IMAGES = [
-  require('../../assets/onboarding-screen-1.png'),
-  require('../../assets/onboarding-screen-2.png'),
-  require('../../assets/onboarding-screen-3.png'),
+  require('../../assets/onboarding-pdf-illustration.png'),
+  require('../../assets/onboarding-import-illustration.png'),
+  require('../../assets/onboarding-save-illustration.png'),
 ];
 
 function OnboardingIllustration({ slideIndex }: { slideIndex: number }) {

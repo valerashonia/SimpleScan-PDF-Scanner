@@ -401,7 +401,7 @@ export default function DashboardScreen({
                 <View style={styles.emptyStateWrap}>
                   <View style={styles.emptyStateIllustration}>
                     <Image
-                      source={require('../../assets/splash-app-icon.png')}
+                      source={require('../../assets/splash-icon.png')}
                       style={styles.emptyStateIconImage}
                       resizeMode="contain"
                     />

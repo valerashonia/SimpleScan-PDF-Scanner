@@ -41,7 +41,7 @@ function getProductTitle(product: AdaptyPaywallProduct): string {
 }
 
 function getProductPriceString(product: AdaptyPaywallProduct): string {
-  return product.price?.localizedString ?? product.price?.formatted ?? '—';
+  return product.price?.localizedString ?? '—';
 }
 
 interface SubscriptionScreenProps {
