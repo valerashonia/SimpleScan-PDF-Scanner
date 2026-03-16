@@ -20,16 +20,30 @@ export async function getProfile(): Promise<AdaptyProfile | null> {
 
 export async function getPaywall(): Promise<AdaptyPaywall | null> {
   try {
-    return await adapty.getPaywall(ADAPTY_PLACEMENT_ID);
-  } catch {
+    const paywall = await adapty.getPaywall(ADAPTY_PLACEMENT_ID);
+    if (__DEV__) {
+      console.log('[Adapty] getPaywall(placement=', ADAPTY_PLACEMENT_ID, ') =>', paywall ? 'paywall' : 'null');
+    }
+    return paywall;
+  } catch (e) {
+    if (__DEV__) {
+      console.warn('[Adapty] getPaywall failed:', e);
+    }
     return null;
   }
 }
 
 export async function getPaywallProducts(paywall: AdaptyPaywall): Promise<AdaptyPaywallProduct[]> {
   try {
-    return await adapty.getPaywallProducts(paywall);
-  } catch {
+    const list = await adapty.getPaywallProducts(paywall);
+    if (__DEV__) {
+      console.log('[Adapty] getPaywallProducts =>', list.length, 'products');
+    }
+    return list;
+  } catch (e) {
+    if (__DEV__) {
+      console.warn('[Adapty] getPaywallProducts failed:', e);
+    }
     return [];
   }
 }

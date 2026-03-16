@@ -68,6 +68,9 @@ export default function SubscriptionScreen({ onComplete, onSkip }: SubscriptionS
     try {
       const paywall = await getPaywall();
       if (!paywall) {
+        if (__DEV__) {
+          console.warn('[SubscriptionScreen] Paywall is null for placement "main". Ensure Adapty is activated and paywall is published in dashboard.');
+        }
         setProductsError('No subscription plans available.');
         setProducts([]);
         setSelectedProduct(null);

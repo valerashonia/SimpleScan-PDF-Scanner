@@ -22,8 +22,9 @@
       "backgroundColor": "#ffffff"
     },
     "ios": {
-      "buildNumber": "5",
-      "supportsTablet": true,
+      "icon": "./assets/icon.png",
+      "buildNumber": "10",
+      "supportsTablet": false,
       "infoPlist": {
         "NSCameraUsageDescription": "This app uses the camera to scan documents.",
         "NSPhotoLibraryUsageDescription": "This app accesses your photos to import documents.",

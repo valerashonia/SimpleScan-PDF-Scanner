@@ -27,19 +27,26 @@ function AppContent() {
 
   useEffect(() => {
     const initAdapty = async () => {
-      // Public SDK key from Adapty Dashboard → App settings → Public SDK key (set in .env as EXPO_PUBLIC_ADAPTY_PUBLIC_SDK_KEY or in EAS Secrets for production)
-      const adaptyKey = (process.env.EXPO_PUBLIC_ADAPTY_PUBLIC_SDK_KEY ?? '').trim();
+      // Public SDK key: from .env (EXPO_PUBLIC_ADAPTY_PUBLIC_SDK_KEY) or use default below for this app
+      const adaptyKey = (
+        process.env.EXPO_PUBLIC_ADAPTY_PUBLIC_SDK_KEY ??
+        'public_live_5PWYUHOF.kohd4hNevLuLZpN6UFQa'
+      ).trim();
+      if (__DEV__) {
+        console.log('[Adapty] Init: key present=', !!adaptyKey, 'key length=', adaptyKey.length);
+      }
       if (!adaptyKey) {
+        console.warn('[Adapty] Skipping activation: no SDK key.');
         return;
       }
       try {
         await Adapty.activate(adaptyKey, {
           __ignoreActivationOnFastRefresh: __DEV__,
         });
+        console.log('[Adapty] Activation succeeded. Placement "main" can be used to fetch paywall.');
       } catch (e) {
-        if (__DEV__) {
-          console.warn('[Adapty] Activate failed:', e);
-        }
+        const msg = e instanceof Error ? e.message : String(e);
+        console.warn('[Adapty] Activate failed:', msg, e);
       }
     };
     initAdapty();
