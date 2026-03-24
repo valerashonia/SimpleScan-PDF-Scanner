@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import Adapty from 'react-native-adapty';
+import { adapty } from 'react-native-adapty';
 import { StatusBar } from 'expo-status-bar';
 import { NavigationContainer } from '@react-navigation/native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
@@ -25,30 +25,68 @@ function AppContent() {
   const [appState, setAppState] = useState<AppState>('splash');
   const { setPremium } = useSubscription();
 
+  const debugLog = (hypothesisId: string, location: string, message: string, data: Record<string, unknown>) => {
+    // #region agent log
+    fetch('http://127.0.0.1:7297/ingest/f83a1916-bd5c-4fa6-9ecc-295043015f29', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-Debug-Session-Id': 'e9260a' },
+      body: JSON.stringify({
+        sessionId: 'e9260a',
+        runId: 'pre-fix',
+        hypothesisId,
+        location,
+        message,
+        data,
+        timestamp: Date.now(),
+      }),
+    }).catch(() => {});
+    // #endregion
+  };
+
+  // Adapty: runs once on cold start. Requires a dev/production native build (EAS or expo run:ios), not Expo Go.
   useEffect(() => {
     const initAdapty = async () => {
-      // Public SDK key: from .env (EXPO_PUBLIC_ADAPTY_PUBLIC_SDK_KEY) or use default below for this app
+      const envKey = process.env.EXPO_PUBLIC_ADAPTY_PUBLIC_SDK_KEY;
       const adaptyKey = (
-        process.env.EXPO_PUBLIC_ADAPTY_PUBLIC_SDK_KEY ??
+        envKey ??
         'public_live_5PWYUHOF.kohd4hNevLuLZpN6UFQa'
       ).trim();
+      const keySource = envKey ? 'env' : 'fallback';
+      debugLog('H1', 'App.tsx:initAdapty:beforeActivate', 'Preparing adapty activation', {
+        keySource,
+        keyLength: adaptyKey.length,
+      });
+
       if (__DEV__) {
-        console.log('[Adapty] Init: key present=', !!adaptyKey, 'key length=', adaptyKey.length);
+        console.log(
+          '[Adapty] Module check — activate is function:',
+          typeof adapty?.activate === 'function',
+        );
+        console.log('[Adapty] Init: public key configured=', !!adaptyKey, 'length=', adaptyKey.length);
       }
+
       if (!adaptyKey) {
-        console.warn('[Adapty] Skipping activation: no SDK key.');
+        console.warn('[Adapty] Skipping activation: EXPO_PUBLIC_ADAPTY_PUBLIC_SDK_KEY is empty.');
         return;
       }
+
       try {
-        await Adapty.activate(adaptyKey, {
+        await adapty.activate(adaptyKey, {
           __ignoreActivationOnFastRefresh: __DEV__,
         });
-        console.log('[Adapty] Activation succeeded. Placement "main" can be used to fetch paywall.');
+        debugLog('H1', 'App.tsx:initAdapty:activated', 'adapty.activate success', { keySource });
+        // Visible in Xcode / TestFlight device logs — confirms native module + activation for production review
+        console.log('[Adapty] SDK activated successfully. Paywalls/subscriptions ready (placement: main).');
       } catch (e) {
         const msg = e instanceof Error ? e.message : String(e);
-        console.warn('[Adapty] Activate failed:', msg, e);
+        debugLog('H1', 'App.tsx:initAdapty:error', 'adapty.activate failed', {
+          keySource,
+          error: msg,
+        });
+        console.warn('[Adapty] activate() failed:', msg, e);
       }
     };
+
     initAdapty();
   }, []);
 
