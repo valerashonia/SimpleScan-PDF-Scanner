@@ -16,6 +16,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import type { AdaptyPaywallProduct } from 'react-native-adapty';
 import { Colors } from '../constants/colors';
+import { ADAPTY_PLACEMENT_ID } from '../constants/subscription';
 import { TERMS_CONTENT, PRIVACY_CONTENT } from '../constants/legalContent';
 import { useSubscription } from '../contexts/SubscriptionContext';
 import { getPaywall, getPaywallProducts } from '../services/subscriptionService';
@@ -69,7 +70,9 @@ export default function SubscriptionScreen({ onComplete, onSkip }: SubscriptionS
       const paywall = await getPaywall();
       if (!paywall) {
         if (__DEV__) {
-          console.warn('[SubscriptionScreen] Paywall is null for placement "main". Ensure Adapty is activated and paywall is published in dashboard.');
+          console.warn(
+            `[SubscriptionScreen] Paywall is null for placement "${ADAPTY_PLACEMENT_ID}". Ensure Adapty is activated and paywall is published in dashboard.`
+          );
         }
         setProductsError('No subscription plans available.');
         setProducts([]);

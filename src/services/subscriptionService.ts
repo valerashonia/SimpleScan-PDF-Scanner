@@ -1,25 +1,17 @@
 import { adapty } from 'react-native-adapty';
 import type { AdaptyPaywall, AdaptyPaywallProduct, AdaptyProfile } from 'react-native-adapty';
-import { ADAPTY_ACCESS_LEVEL_PRO } from '../constants/subscription';
+import { ADAPTY_ACCESS_LEVEL_PRO, ADAPTY_PLACEMENT_ID } from '../constants/subscription';
 
 export type PurchaseResult = { success: boolean; error?: string };
 
-function debugLog(hypothesisId: string, location: string, message: string, data: Record<string, unknown>) {
-  // #region agent log
-  fetch('http://127.0.0.1:7297/ingest/f83a1916-bd5c-4fa6-9ecc-295043015f29', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'X-Debug-Session-Id': 'e9260a' },
-    body: JSON.stringify({
-      sessionId: 'e9260a',
-      runId: 'pre-fix',
-      hypothesisId,
-      location,
-      message,
-      data,
-      timestamp: Date.now(),
-    }),
-  }).catch(() => {});
-  // #endregion
+function getErrorMessage(error: unknown, fallback: string): string {
+  if (error instanceof Error && error.message) return error.message;
+  if (typeof error === 'string' && error.trim()) return error;
+  if (error && typeof error === 'object' && 'message' in error) {
+    const maybeMessage = (error as { message?: unknown }).message;
+    if (typeof maybeMessage === 'string' && maybeMessage.trim()) return maybeMessage;
+  }
+  return fallback;
 }
 
 export function hasPremiumAccess(profile: AdaptyProfile | null): boolean {
@@ -37,24 +29,13 @@ export async function getProfile(): Promise<AdaptyProfile | null> {
 }
 
 export async function getPaywall(): Promise<AdaptyPaywall | null> {
-  debugLog('H2', 'subscriptionService.ts:getPaywall:entry', 'Calling adapty.getPaywall', {
-    placementId: 'main',
-  });
   try {
-    const paywall = await adapty.getPaywall('main');
-    debugLog('H2', 'subscriptionService.ts:getPaywall:success', 'adapty.getPaywall success', {
-      isNull: !paywall,
-      hasRemoteConfig: Boolean((paywall as { remoteConfig?: unknown })?.remoteConfig),
-      variationId: (paywall as { variationId?: string })?.variationId ?? null,
-    });
+    const paywall = await adapty.getPaywall(ADAPTY_PLACEMENT_ID);
     if (__DEV__) {
-      console.log('[Adapty] getPaywall(placement= main ) =>', paywall ? 'paywall' : 'null');
+      console.log('[Adapty] getPaywall(placement=', ADAPTY_PLACEMENT_ID, ') =>', paywall ? 'paywall' : 'null');
     }
     return paywall;
   } catch (e) {
-    debugLog('H2', 'subscriptionService.ts:getPaywall:error', 'adapty.getPaywall failed', {
-      error: e instanceof Error ? e.message : String(e),
-    });
     if (__DEV__) {
       console.warn('[Adapty] getPaywall failed:', e);
     }
@@ -63,23 +44,13 @@ export async function getPaywall(): Promise<AdaptyPaywall | null> {
 }
 
 export async function getPaywallProducts(paywall: AdaptyPaywall): Promise<AdaptyPaywallProduct[]> {
-  debugLog('H3', 'subscriptionService.ts:getPaywallProducts:entry', 'Calling adapty.getPaywallProducts', {
-    placementId: (paywall as { placementId?: string })?.placementId ?? 'unknown',
-  });
   try {
     const list = await adapty.getPaywallProducts(paywall);
-    debugLog('H3', 'subscriptionService.ts:getPaywallProducts:success', 'adapty.getPaywallProducts success', {
-      count: list.length,
-      productIds: list.map((p) => p.vendorProductId ?? 'unknown'),
-    });
     if (__DEV__) {
       console.log('[Adapty] getPaywallProducts =>', list.length, 'products');
     }
     return list;
   } catch (e) {
-    debugLog('H3', 'subscriptionService.ts:getPaywallProducts:error', 'adapty.getPaywallProducts failed', {
-      error: e instanceof Error ? e.message : String(e),
-    });
     if (__DEV__) {
       console.warn('[Adapty] getPaywallProducts failed:', e);
     }
@@ -103,7 +74,7 @@ export async function makePurchase(product: AdaptyPaywallProduct): Promise<Purch
         return { success: false, error: 'Purchase failed.' };
     }
   } catch (e: unknown) {
-    const message = e instanceof Error ? e.message : 'Purchase failed.';
+    const message = getErrorMessage(e, 'Purchase failed.');
     return { success: false, error: String(message) };
   }
 }
@@ -115,7 +86,7 @@ export async function restorePurchases(): Promise<PurchaseResult> {
       ? { success: true }
       : { success: false, error: 'No active subscription found.' };
   } catch (e: unknown) {
-    const message = e instanceof Error ? e.message : 'Restore failed.';
+    const message = getErrorMessage(e, 'Restore failed.');
     return { success: false, error: String(message) };
   }
 }

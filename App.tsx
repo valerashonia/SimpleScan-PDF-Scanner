@@ -25,24 +25,6 @@ function AppContent() {
   const [appState, setAppState] = useState<AppState>('splash');
   const { setPremium } = useSubscription();
 
-  const debugLog = (hypothesisId: string, location: string, message: string, data: Record<string, unknown>) => {
-    // #region agent log
-    fetch('http://127.0.0.1:7297/ingest/f83a1916-bd5c-4fa6-9ecc-295043015f29', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'X-Debug-Session-Id': 'e9260a' },
-      body: JSON.stringify({
-        sessionId: 'e9260a',
-        runId: 'pre-fix',
-        hypothesisId,
-        location,
-        message,
-        data,
-        timestamp: Date.now(),
-      }),
-    }).catch(() => {});
-    // #endregion
-  };
-
   // Adapty: runs once on cold start. Requires a dev/production native build (EAS or expo run:ios), not Expo Go.
   useEffect(() => {
     const initAdapty = async () => {
@@ -52,10 +34,6 @@ function AppContent() {
         'public_live_5PWYUHOF.kohd4hNevLuLZpN6UFQa'
       ).trim();
       const keySource = envKey ? 'env' : 'fallback';
-      debugLog('H1', 'App.tsx:initAdapty:beforeActivate', 'Preparing adapty activation', {
-        keySource,
-        keyLength: adaptyKey.length,
-      });
 
       if (__DEV__) {
         console.log(
@@ -74,15 +52,10 @@ function AppContent() {
         await adapty.activate(adaptyKey, {
           __ignoreActivationOnFastRefresh: __DEV__,
         });
-        debugLog('H1', 'App.tsx:initAdapty:activated', 'adapty.activate success', { keySource });
         // Visible in Xcode / TestFlight device logs — confirms native module + activation for production review
         console.log('[Adapty] SDK activated successfully. Paywalls/subscriptions ready (placement: main).');
       } catch (e) {
         const msg = e instanceof Error ? e.message : String(e);
-        debugLog('H1', 'App.tsx:initAdapty:error', 'adapty.activate failed', {
-          keySource,
-          error: msg,
-        });
         console.warn('[Adapty] activate() failed:', msg, e);
       }
     };

@@ -247,7 +247,7 @@ export default function DocumentViewerScreen({
         { 
           text: 'Delete', 
           style: 'destructive', 
-          onPress: () => onDelete(document)
+          onPress: () => onDelete?.(document)
         },
       ]
     );
@@ -1006,8 +1006,6 @@ const styles = StyleSheet.create({
     height: 80,
     borderRadius: 8,
     overflow: 'hidden',
-    borderWidth: 2,
-    borderColor: Colors.primary,
     borderWidth: 2,
     borderColor: Colors.primary,
   },
