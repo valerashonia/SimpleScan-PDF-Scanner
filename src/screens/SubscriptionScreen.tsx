@@ -37,12 +37,22 @@ const FEATURES = [
   { icon: 'share-social' as const, label: 'Share & Organize', caption: 'Export and share your PDFs anytime.', color: '#3B82F6' },
 ];
 
-function getProductTitle(product: AdaptyPaywallProduct): string {
-  return product.localizedTitle ?? product.vendorProductId ?? '';
+function isYearlyProduct(product: AdaptyPaywallProduct): boolean {
+  const id = (product.vendorProductId ?? '').toLowerCase();
+  return id.includes('yearly') || id.includes('annual');
+}
+
+function getProductLabel(product: AdaptyPaywallProduct): string {
+  return isYearlyProduct(product) ? 'Annually' : 'Weekly';
 }
 
 function getProductPriceString(product: AdaptyPaywallProduct): string {
   return product.price?.localizedString ?? '—';
+}
+
+function getCtaLabel(product: AdaptyPaywallProduct | null): string {
+  if (!product) return 'Continue';
+  return isYearlyProduct(product) ? 'Start Free Trial' : 'Continue';
 }
 
 interface SubscriptionScreenProps {
@@ -66,6 +76,9 @@ export default function SubscriptionScreen({ onComplete, onSkip }: SubscriptionS
   const loadProducts = useCallback(async () => {
     setLoadingProducts(true);
     setProductsError(null);
+    // #region agent log
+    fetch('http://127.0.0.1:7297/ingest/f83a1916-bd5c-4fa6-9ecc-295043015f29',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'c281dc'},body:JSON.stringify({sessionId:'c281dc',location:'SubscriptionScreen.tsx:loadProducts-start',message:'loadProducts called',data:{},timestamp:Date.now(),hypothesisId:'H4'})}).catch(()=>{});
+    // #endregion
     try {
       const paywall = await getPaywall();
       if (!paywall) {
@@ -74,16 +87,31 @@ export default function SubscriptionScreen({ onComplete, onSkip }: SubscriptionS
             `[SubscriptionScreen] Paywall is null for placement "${ADAPTY_PLACEMENT_ID}". Ensure Adapty is activated and paywall is published in dashboard.`
           );
         }
-        setProductsError('No subscription plans available.');
+        // #region agent log
+        fetch('http://127.0.0.1:7297/ingest/f83a1916-bd5c-4fa6-9ecc-295043015f29',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'c281dc'},body:JSON.stringify({sessionId:'c281dc',location:'SubscriptionScreen.tsx:loadProducts-noPaywall',message:'Paywall is null',data:{placementId:ADAPTY_PLACEMENT_ID},timestamp:Date.now(),hypothesisId:'H2'})}).catch(()=>{});
+        // #endregion
+        setProductsError(`Paywall not found for placement "${ADAPTY_PLACEMENT_ID}". Verify Adapty Dashboard has a published paywall.`);
         setProducts([]);
         setSelectedProduct(null);
         return;
       }
       const list = await getPaywallProducts(paywall);
+      // #region agent log
+      fetch('http://127.0.0.1:7297/ingest/f83a1916-bd5c-4fa6-9ecc-295043015f29',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'c281dc'},body:JSON.stringify({sessionId:'c281dc',location:'SubscriptionScreen.tsx:loadProducts-done',message:'Products loaded in screen',data:{count:list.length,ids:list.map(p=>p.vendorProductId??'?')},timestamp:Date.now(),hypothesisId:'H5'})}).catch(()=>{});
+      // #endregion
+      if (list.length === 0) {
+        setProductsError('Paywall loaded but no products found. Check Adapty Dashboard products and App Store Connect IAP status.');
+        setProducts([]);
+        setSelectedProduct(null);
+        return;
+      }
       setProducts(list);
       setSelectedProduct(list[0] ?? null);
     } catch (e) {
       const message = e instanceof Error ? e.message : 'Failed to load plans.';
+      // #region agent log
+      fetch('http://127.0.0.1:7297/ingest/f83a1916-bd5c-4fa6-9ecc-295043015f29',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'c281dc'},body:JSON.stringify({sessionId:'c281dc',location:'SubscriptionScreen.tsx:loadProducts-catch',message:'loadProducts error',data:{error:message},timestamp:Date.now(),hypothesisId:'H4'})}).catch(()=>{});
+      // #endregion
       setProductsError(message);
       setProducts([]);
       setSelectedProduct(null);
@@ -139,12 +167,21 @@ export default function SubscriptionScreen({ onComplete, onSkip }: SubscriptionS
       />
       <StatusBar barStyle="dark-content" backgroundColor="transparent" translucent />
       <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
-        <TouchableOpacity
-          style={[styles.closeButton, { top: insets.top + 8 }]}
-          onPress={onSkip ?? onComplete}
-        >
-          <Ionicons name="close" size={24} color={TEXT_DARK} />
-        </TouchableOpacity>
+        <View style={[styles.topBar, { top: insets.top + 8 }]}>
+          <TouchableOpacity
+            style={styles.restoreTopButton}
+            onPress={handleRestore}
+            disabled={isLoading}
+          >
+            <Text style={[styles.restoreTopText, isLoading && { opacity: 0.5 }]}>Restore</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.closeButton}
+            onPress={onSkip ?? onComplete}
+          >
+            <Ionicons name="close" size={24} color={TEXT_DARK} />
+          </TouchableOpacity>
+        </View>
 
         <View style={styles.mainLayout}>
           <ScrollView
@@ -184,39 +221,37 @@ export default function SubscriptionScreen({ onComplete, onSkip }: SubscriptionS
                   </TouchableOpacity>
                 </View>
               ) : hasProducts ? (
-                <>
-                  <View style={styles.planBadgeFullWidth}>
-                    <View style={styles.planBadgeAbove}>
-                      <Text style={styles.planCardBadgeText}>Cancel anytime. Billed via your App Store account.</Text>
-                    </View>
-                  </View>
-                  <View style={styles.planCardsRow}>
-                    {products.map((product) => (
+                <View style={styles.planCardsRow}>
+                  {products.map((product) => {
+                    const selected = selectedProduct?.vendorProductId === product.vendorProductId;
+                    const yearly = isYearlyProduct(product);
+                    return (
                       <View key={product.vendorProductId} style={styles.planCardColumn}>
                         <Pressable
-                          style={[
-                            styles.planCard,
-                            selectedProduct?.vendorProductId === product.vendorProductId && styles.planCardSelected,
-                          ]}
+                          style={[styles.planCard, selected && styles.planCardSelected]}
                           onPress={() => setSelectedProduct(product)}
                         >
-                          {selectedProduct?.vendorProductId === product.vendorProductId && (
+                          {selected && (
                             <View style={styles.planCardCheck}>
                               <Ionicons name="checkmark" size={14} color="#FFFFFF" />
                             </View>
                           )}
-                          <Ionicons name="calendar-outline" size={24} color={TEXT_CAPTION} style={styles.planCardIcon} />
                           <Text style={styles.planCardTitle} numberOfLines={1}>
-                            {getProductTitle(product)}
+                            {getProductLabel(product)}
                           </Text>
                           <Text style={styles.planCardPrice}>
                             {getProductPriceString(product)}
                           </Text>
+                          {yearly ? (
+                            <Text style={styles.planCardTrial}>3-day free trial</Text>
+                          ) : (
+                            <Text style={styles.planCardBilledLabel}>Billed Weekly</Text>
+                          )}
                         </Pressable>
                       </View>
-                    ))}
-                  </View>
-                </>
+                    );
+                  })}
+                </View>
               ) : null}
             </View>
           </ScrollView>
@@ -231,16 +266,10 @@ export default function SubscriptionScreen({ onComplete, onSkip }: SubscriptionS
               {isPurchasing ? (
                 <ActivityIndicator color="#FFFFFF" size="small" />
               ) : (
-                <Text style={styles.ctaText}>Try Free / Upgrade</Text>
+                <Text style={styles.ctaText}>{getCtaLabel(selectedProduct)}</Text>
               )}
             </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.restoreButton, isLoading && styles.ctaButtonDisabled]}
-              onPress={handleRestore}
-              disabled={isLoading}
-            >
-              <Text style={styles.restoreButtonText}>Restore Purchases</Text>
-            </TouchableOpacity>
+            <Text style={styles.cancelAnytimeText}>Cancel anytime. Billed via your App Store account.</Text>
             <View style={styles.footer}>
               <TouchableOpacity onPress={() => setShowPrivacyModal(true)}>
                 <Text style={styles.footerLink}>Privacy</Text>
@@ -294,10 +323,25 @@ const styles = StyleSheet.create({
   safe: {
     flex: 1,
   },
-  closeButton: {
+  topBar: {
     position: 'absolute',
+    left: PADDING_H,
     right: PADDING_H,
     zIndex: 10,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  restoreTopButton: {
+    paddingVertical: 8,
+    paddingHorizontal: 4,
+  },
+  restoreTopText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: CARD_SELECTED_BORDER,
+  },
+  closeButton: {
     width: 40,
     height: 40,
     borderRadius: 20,
@@ -314,14 +358,18 @@ const styles = StyleSheet.create({
   scrollContent: {
     flexGrow: 1,
     paddingHorizontal: PADDING_H,
-    paddingTop: 48,
-    paddingBottom: 32,
+    paddingTop: 56,
+    paddingBottom: 8,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   cardsBlockWrap: {
-    marginTop: -32,
-    paddingTop: 28,
+    width: '100%',
+    marginTop: 0,
+    paddingTop: 0,
   },
   loadingOfferings: {
+    width: '100%',
     minHeight: 200,
     justifyContent: 'center',
     alignItems: 'center',
@@ -332,6 +380,7 @@ const styles = StyleSheet.create({
     color: TEXT_CAPTION,
   },
   offeringsError: {
+    width: '100%',
     minHeight: 160,
     justifyContent: 'center',
     alignItems: 'center',
@@ -355,10 +404,9 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
   },
   fixedBottomSection: {
-    marginTop: 'auto',
     paddingHorizontal: PADDING_H,
-    paddingTop: 20,
-    paddingBottom: 20,
+    paddingTop: 16,
+    paddingBottom: 16,
     borderTopWidth: StyleSheet.hairlineWidth,
     borderTopColor: CARD_BORDER,
     backgroundColor: SCREEN_BG_BOTTOM,
@@ -374,9 +422,10 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: TEXT_CAPTION,
     textAlign: 'center',
-    marginBottom: 32,
+    marginBottom: 24,
   },
   featuresList: {
+    width: '100%',
     marginBottom: 28,
     gap: 22,
   },
@@ -408,23 +457,16 @@ const styles = StyleSheet.create({
   },
   planBadgeFullWidth: {
     width: '100%',
-    minHeight: 52,
-    marginBottom: 16,
-    justifyContent: 'center',
+    minHeight: 0,
   },
   planBadgeAbove: {
     width: '100%',
-    alignSelf: 'stretch',
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    backgroundColor: 'rgba(147, 89, 255, 0.12)',
-    borderRadius: 10,
-    alignItems: 'center',
-    justifyContent: 'center',
   },
   planCardsRow: {
+    width: '100%',
     flexDirection: 'row',
-    flexWrap: 'wrap',
+    justifyContent: 'center',
+    alignItems: 'stretch',
     gap: 16,
     marginBottom: 28,
   },
@@ -434,7 +476,8 @@ const styles = StyleSheet.create({
   },
   planCard: {
     width: '100%',
-    minHeight: 160,
+    flex: 1,
+    minHeight: 120,
     backgroundColor: CARD_BG,
     borderRadius: 16,
     borderWidth: 2,
@@ -465,8 +508,17 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     lineHeight: 18,
   },
-  planCardIcon: {
-    marginBottom: 12,
+  planCardTrial: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#22C55E',
+    marginTop: 4,
+  },
+  planCardBilledLabel: {
+    fontSize: 12,
+    fontWeight: '500',
+    color: '#A0A0A0',
+    marginTop: 4,
   },
   planCardTitle: {
     fontSize: 15,
@@ -509,16 +561,12 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#FFFFFF',
   },
-  restoreButton: {
-    paddingVertical: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
+  cancelAnytimeText: {
+    fontSize: 13,
+    color: TEXT_CAPTION,
+    textAlign: 'center',
     marginBottom: 16,
-  },
-  restoreButtonText: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: CARD_SELECTED_BORDER,
+    lineHeight: 18,
   },
   footer: {
     flexDirection: 'row',

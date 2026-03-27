@@ -31,11 +31,17 @@ export async function getProfile(): Promise<AdaptyProfile | null> {
 export async function getPaywall(): Promise<AdaptyPaywall | null> {
   try {
     const paywall = await adapty.getPaywall(ADAPTY_PLACEMENT_ID);
+    // #region agent log
+    fetch('http://127.0.0.1:7297/ingest/f83a1916-bd5c-4fa6-9ecc-295043015f29',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'c281dc'},body:JSON.stringify({sessionId:'c281dc',location:'subscriptionService.ts:getPaywall-result',message:'getPaywall returned',data:{placementId:ADAPTY_PLACEMENT_ID,isNull:!paywall,paywallId:(paywall as any)?.id??null,variationId:(paywall as any)?.variationId??null},timestamp:Date.now(),hypothesisId:'H2'})}).catch(()=>{});
+    // #endregion
     if (__DEV__) {
       console.log('[Adapty] getPaywall(placement=', ADAPTY_PLACEMENT_ID, ') =>', paywall ? 'paywall' : 'null');
     }
     return paywall;
   } catch (e) {
+    // #region agent log
+    fetch('http://127.0.0.1:7297/ingest/f83a1916-bd5c-4fa6-9ecc-295043015f29',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'c281dc'},body:JSON.stringify({sessionId:'c281dc',location:'subscriptionService.ts:getPaywall-error',message:'getPaywall threw',data:{placementId:ADAPTY_PLACEMENT_ID,error:e instanceof Error?e.message:String(e)},timestamp:Date.now(),hypothesisId:'H2'})}).catch(()=>{});
+    // #endregion
     if (__DEV__) {
       console.warn('[Adapty] getPaywall failed:', e);
     }
@@ -46,11 +52,17 @@ export async function getPaywall(): Promise<AdaptyPaywall | null> {
 export async function getPaywallProducts(paywall: AdaptyPaywall): Promise<AdaptyPaywallProduct[]> {
   try {
     const list = await adapty.getPaywallProducts(paywall);
+    // #region agent log
+    fetch('http://127.0.0.1:7297/ingest/f83a1916-bd5c-4fa6-9ecc-295043015f29',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'c281dc'},body:JSON.stringify({sessionId:'c281dc',location:'subscriptionService.ts:getPaywallProducts-result',message:'getPaywallProducts returned',data:{count:list.length,productIds:list.map(p=>p.vendorProductId??'unknown')},timestamp:Date.now(),hypothesisId:'H3'})}).catch(()=>{});
+    // #endregion
     if (__DEV__) {
       console.log('[Adapty] getPaywallProducts =>', list.length, 'products');
     }
     return list;
   } catch (e) {
+    // #region agent log
+    fetch('http://127.0.0.1:7297/ingest/f83a1916-bd5c-4fa6-9ecc-295043015f29',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'c281dc'},body:JSON.stringify({sessionId:'c281dc',location:'subscriptionService.ts:getPaywallProducts-error',message:'getPaywallProducts threw',data:{error:e instanceof Error?e.message:String(e)},timestamp:Date.now(),hypothesisId:'H3'})}).catch(()=>{});
+    // #endregion
     if (__DEV__) {
       console.warn('[Adapty] getPaywallProducts failed:', e);
     }
