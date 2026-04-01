@@ -7,4 +7,4 @@
 export const ADAPTY_PLACEMENT_ID = process.env.EXPO_PUBLIC_ADAPTY_PLACEMENT_ID ?? 'main';
 
 /** Access level id that grants premium (configure in Adapty Dashboard) */
-export const ADAPTY_ACCESS_LEVEL_PRO = 'pro';
+export const ADAPTY_ACCESS_LEVEL_PRO = 'premium';

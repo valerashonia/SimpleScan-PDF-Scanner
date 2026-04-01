@@ -76,29 +76,20 @@ export default function SubscriptionScreen({ onComplete, onSkip }: SubscriptionS
   const loadProducts = useCallback(async () => {
     setLoadingProducts(true);
     setProductsError(null);
-    // #region agent log
-    fetch('http://127.0.0.1:7297/ingest/f83a1916-bd5c-4fa6-9ecc-295043015f29',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'c281dc'},body:JSON.stringify({sessionId:'c281dc',location:'SubscriptionScreen.tsx:loadProducts-start',message:'loadProducts called',data:{},timestamp:Date.now(),hypothesisId:'H4'})}).catch(()=>{});
-    // #endregion
     try {
       const paywall = await getPaywall();
       if (!paywall) {
         if (__DEV__) {
           console.warn(
-            `[SubscriptionScreen] Paywall is null for placement "${ADAPTY_PLACEMENT_ID}". Ensure Adapty is activated and paywall is published in dashboard.`
+            `[SubscriptionScreen] Paywall is null for placement "${ADAPTY_PLACEMENT_ID}".`
           );
         }
-        // #region agent log
-        fetch('http://127.0.0.1:7297/ingest/f83a1916-bd5c-4fa6-9ecc-295043015f29',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'c281dc'},body:JSON.stringify({sessionId:'c281dc',location:'SubscriptionScreen.tsx:loadProducts-noPaywall',message:'Paywall is null',data:{placementId:ADAPTY_PLACEMENT_ID},timestamp:Date.now(),hypothesisId:'H2'})}).catch(()=>{});
-        // #endregion
         setProductsError(`Paywall not found for placement "${ADAPTY_PLACEMENT_ID}". Verify Adapty Dashboard has a published paywall.`);
         setProducts([]);
         setSelectedProduct(null);
         return;
       }
       const list = await getPaywallProducts(paywall);
-      // #region agent log
-      fetch('http://127.0.0.1:7297/ingest/f83a1916-bd5c-4fa6-9ecc-295043015f29',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'c281dc'},body:JSON.stringify({sessionId:'c281dc',location:'SubscriptionScreen.tsx:loadProducts-done',message:'Products loaded in screen',data:{count:list.length,ids:list.map(p=>p.vendorProductId??'?')},timestamp:Date.now(),hypothesisId:'H5'})}).catch(()=>{});
-      // #endregion
       if (list.length === 0) {
         setProductsError('Paywall loaded but no products found. Check Adapty Dashboard products and App Store Connect IAP status.');
         setProducts([]);
@@ -109,9 +100,6 @@ export default function SubscriptionScreen({ onComplete, onSkip }: SubscriptionS
       setSelectedProduct(list[0] ?? null);
     } catch (e) {
       const message = e instanceof Error ? e.message : 'Failed to load plans.';
-      // #region agent log
-      fetch('http://127.0.0.1:7297/ingest/f83a1916-bd5c-4fa6-9ecc-295043015f29',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'c281dc'},body:JSON.stringify({sessionId:'c281dc',location:'SubscriptionScreen.tsx:loadProducts-catch',message:'loadProducts error',data:{error:message},timestamp:Date.now(),hypothesisId:'H4'})}).catch(()=>{});
-      // #endregion
       setProductsError(message);
       setProducts([]);
       setSelectedProduct(null);

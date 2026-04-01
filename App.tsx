@@ -53,15 +53,9 @@ function AppContent() {
           __ignoreActivationOnFastRefresh: __DEV__,
         });
         // Visible in Xcode / TestFlight device logs — confirms native module + activation for production review
-        console.log('[Adapty] SDK activated successfully. Paywalls/subscriptions ready (placement: main).');
-        // #region agent log
-        fetch('http://127.0.0.1:7297/ingest/f83a1916-bd5c-4fa6-9ecc-295043015f29',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'c281dc'},body:JSON.stringify({sessionId:'c281dc',location:'App.tsx:activate-success',message:'Adapty activated OK',data:{keySource,keyLength:adaptyKey.length},timestamp:Date.now(),hypothesisId:'H1'})}).catch(()=>{});
-        // #endregion
+        console.log('[Adapty] SDK activated successfully.');
       } catch (e) {
         const msg = e instanceof Error ? e.message : String(e);
-        // #region agent log
-        fetch('http://127.0.0.1:7297/ingest/f83a1916-bd5c-4fa6-9ecc-295043015f29',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'c281dc'},body:JSON.stringify({sessionId:'c281dc',location:'App.tsx:activate-error',message:'Adapty activate failed',data:{keySource,error:msg},timestamp:Date.now(),hypothesisId:'H1'})}).catch(()=>{});
-        // #endregion
         console.warn('[Adapty] activate() failed:', msg, e);
       }
     };
